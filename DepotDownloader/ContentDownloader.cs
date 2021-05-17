@@ -116,6 +116,7 @@ namespace DepotDownloader
         {
             if ( steam3 == null || steam3.steamUser.SteamID == null || ( steam3.Licenses == null && steam3.steamUser.SteamID.AccountType != EAccountType.AnonUser ) )
                 return false;
+            if (steam3.DepotKeys.ContainsKey(depotId)) { return true; }
 
             IEnumerable<uint> licenseQuery;
             if ( steam3.steamUser.SteamID.AccountType == EAccountType.AnonUser )
@@ -336,7 +337,7 @@ namespace DepotDownloader
             }
         }
 
-        public static bool InitializeSteam3( string username, string password )
+        public static bool InitializeSteam3( string username, string password, List<(uint, byte[])> depotDepotkeys)
         {
             string loginKey = null;
 
@@ -355,6 +356,13 @@ namespace DepotDownloader
                     LoginID = Config.LoginID ?? 0x534B32, // "SK2"
                 }
             );
+            if (depotDepotkeys != null)
+            {
+                foreach (var entry in depotDepotkeys)
+                {
+                    steam3.DepotKeys.Add(entry.Item1, entry.Item2);
+                }
+            }
 
             steam3Credentials = steam3.WaitForCredentials();
 
@@ -472,7 +480,7 @@ namespace DepotDownloader
             if ( steam3 != null )
                 steam3.RequestAppInfo( appId );
 
-            if ( !AccountHasAccess( appId ) )
+            if (!AccountHasAccess(appId) && steam3.DepotKeys.Count == 0)
             {
                 if ( steam3.RequestFreeAppLicense( appId ) )
                 {

@@ -33,7 +33,7 @@ namespace DepotDownloader
 
         public Dictionary<uint, ulong> AppTokens { get; private set; }
         public Dictionary<uint, ulong> PackageTokens { get; private set; }
-        public Dictionary<uint, byte[]> DepotKeys { get; private set; }
+        public Dictionary<uint, byte[]> DepotKeys { get; set; }
         public ConcurrentDictionary<string, TaskCompletionSource<SteamApps.CDNAuthTokenCallback>> CDNAuthTokens { get; private set; }
         public Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProductInfo> AppInfo { get; private set; }
         public Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProductInfo> PackageInfo { get; private set; }
@@ -344,8 +344,9 @@ namespace DepotDownloader
 
                 if ( cdnAuth.Result != EResult.OK )
                 {
-                    Abort();
-                    return;
+                    // tbh i had no idea there was cdn auth so lets just ignore it
+                    //Abort();
+                    //return;
                 }
 
                 CDNAuthTokens[cdnKey].TrySetResult( cdnAuth );

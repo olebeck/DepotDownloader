@@ -109,7 +109,7 @@ namespace DepotDownloader
             {
                 #region Pubfile Downloading
 
-                if ( InitializeSteam( username, password ) )
+                if ( InitializeSteam( username, password, null ) )
                 {
                     try
                     {
@@ -144,7 +144,7 @@ namespace DepotDownloader
             {
                 #region UGC Downloading
 
-                if ( InitializeSteam( username, password ) )
+                if ( InitializeSteam( username, password, null) )
                 {
                     try
                     {
@@ -205,9 +205,11 @@ namespace DepotDownloader
                 bool lv = HasParameter( args, "-lowviolence" );
 
                 List<(uint, ulong)> depotManifestIds = new List<(uint, ulong)>();
+                List<(uint, byte[])> depotDepotkeys = new List<(uint, byte[])>();
                 bool isUGC = false;
 
                 List<uint> depotIdList = GetParameterList<uint>( args, "-depot" );
+                List<string> depotKeyList = GetParameterList<string>(args, "-depotkey");
                 List<ulong> manifestIdList = GetParameterList<ulong>( args, "-manifest" );
                 if ( manifestIdList.Count > 0 )
                 {
@@ -225,7 +227,19 @@ namespace DepotDownloader
                     depotManifestIds.AddRange( depotIdList.Select( depotId => ( depotId, ContentDownloader.INVALID_MANIFEST_ID ) ) );
                 }
 
-                if ( InitializeSteam( username, password ) )
+                if (depotKeyList.Count > 0)
+                {
+                    if (depotIdList.Count != depotKeyList.Count)
+                    {
+                        Console.WriteLine("Error: -depotkey requires one key for every -depot specified");
+                        return 1;
+                    }
+
+                    var zippedDepotKeys = depotIdList.Zip(depotKeyList, (depotId, depotkey) => (depotId, Util.DecodeHexString(depotkey)));
+                    depotDepotkeys.AddRange(zippedDepotKeys);
+                }
+
+                if (InitializeSteam(username, password, depotDepotkeys))
                 {
                     try
                     {
@@ -260,7 +274,7 @@ namespace DepotDownloader
             return 0;
         }
 
-        static bool InitializeSteam( string username, string password )
+        static bool InitializeSteam( string username, string password, List<(uint, byte[])> depotDepotkeys)
         {
             if ( username != null && password == null && ( !ContentDownloader.Config.RememberPassword || !AccountSettingsStore.Instance.LoginKeys.ContainsKey( username ) ) )
             {
@@ -287,7 +301,7 @@ namespace DepotDownloader
             // capture the supplied password in case we need to re-use it after checking the login key
             ContentDownloader.Config.SuppliedPassword = password;
 
-            return ContentDownloader.InitializeSteam3( username, password );
+            return ContentDownloader.InitializeSteam3( username, password, depotDepotkeys );
         }
 
         static int IndexOfParam( string[] args, string param )
@@ -353,44 +367,45 @@ namespace DepotDownloader
         static void PrintUsage()
         {
             Console.WriteLine();
-            Console.WriteLine( "Usage - downloading one or all depots for an app:" );
-            Console.WriteLine( "\tdepotdownloader -app <id> [-depot <id> [-manifest <id>]]" );
-            Console.WriteLine( "\t\t[-username <username> [-password <password>]] [other options]" );
+            Console.WriteLine("Usage - downloading one or all depots for an app:");
+            Console.WriteLine("\tdepotdownloader -app <id> [-depot <id> [-manifest <id>]]");
+            Console.WriteLine("\t\t[-username <username> [-password <password>]] [other options]");
             Console.WriteLine();
             Console.WriteLine("Usage - downloading a workshop item using pubfile id");
-            Console.WriteLine( "\tdepotdownloader -app <id> -pubfile <id> [-username <username> [-password <password>]]" );
+            Console.WriteLine("\tdepotdownloader -app <id> -pubfile <id> [-username <username> [-password <password>]]");
             Console.WriteLine("Usage - downloading a workshop item using ugc id");
             Console.WriteLine("\tdepotdownloader -app <id> -ugc <id> [-username <username> [-password <password>]]");
             Console.WriteLine();
-            Console.WriteLine( "Parameters:" );
-            Console.WriteLine( "\t-app <#>\t\t\t\t- the AppID to download." );
-            Console.WriteLine( "\t-depot <#>\t\t\t\t- the DepotID to download." );
-            Console.WriteLine( "\t-manifest <id>\t\t\t- manifest id of content to download (requires -depot, default: current for branch)." );
-            Console.WriteLine( "\t-beta <branchname>\t\t\t- download from specified branch if available (default: Public)." );
-            Console.WriteLine( "\t-betapassword <pass>\t\t- branch password if applicable." );
-            Console.WriteLine( "\t-all-platforms\t\t\t- downloads all platform-specific depots when -app is used." );
-            Console.WriteLine( "\t-os <os>\t\t\t\t- the operating system for which to download the game (windows, macos or linux, default: OS the program is currently running on)" );
-            Console.WriteLine( "\t-osarch <arch>\t\t\t\t- the architecture for which to download the game (32 or 64, default: the host's architecture)" );
-            Console.WriteLine( "\t-all-languages\t\t\t\t- download all language-specific depots when -app is used." );
-            Console.WriteLine( "\t-language <lang>\t\t\t\t- the language for which to download the game (default: english)" );
-            Console.WriteLine( "\t-lowviolence\t\t\t\t- download low violence depots when -app is used." );
+            Console.WriteLine("Parameters:");
+            Console.WriteLine("\t-app <#>\t\t\t- the AppID to download.");
+            Console.WriteLine("\t-depot <#>\t\t\t- the DepotID to download.");
+            Console.WriteLine("\t-depotkey <#>\t\t\t- Optional DepotKey in hex for the depotID to download.");
+            Console.WriteLine("\t-manifest <id>\t\t\t- manifest id of content to download (requires -depot, default: current for branch).");
+            Console.WriteLine("\t-beta <branchname>\t\t- download from specified branch if available (default: Public).");
+            Console.WriteLine("\t-betapassword <pass>\t\t- branch password if applicable.");
+            Console.WriteLine("\t-all-platforms\t\t\t- downloads all platform-specific depots when -app is used.");
+            Console.WriteLine("\t-os <os>\t\t\t- the operating system for which to download the game (windows, macos or linux, default: OS the program is currently running on)");
+            Console.WriteLine("\t-osarch <arch>\t\t\t- the architecture for which to download the game (32 or 64, default: the host's architecture)");
+            Console.WriteLine("\t-all-languages\t\t\t- download all language-specific depots when -app is used.");
+            Console.WriteLine("\t-language <lang>\t\t- the language for which to download the game (default: english)");
+            Console.WriteLine("\t-lowviolence\t\t\t- download low violence depots when -app is used.");
             Console.WriteLine();
-            Console.WriteLine( "\t-ugc <#>\t\t\t\t- the UGC ID to download." );
-            Console.WriteLine( "\t-pubfile <#>\t\t\t- the PublishedFileId to download. (Will automatically resolve to UGC id)" );
+            Console.WriteLine("\t-ugc <#>\t\t\t- the UGC ID to download.");
+            Console.WriteLine("\t-pubfile <#>\t\t\t- the PublishedFileId to download. (Will automatically resolve to UGC id)");
             Console.WriteLine();
-            Console.WriteLine( "\t-username <user>\t\t- the username of the account to login to for restricted content.");
-            Console.WriteLine( "\t-password <pass>\t\t- the password of the account to login to for restricted content." );
-            Console.WriteLine( "\t-remember-password\t\t- if set, remember the password for subsequent logins of this user." );
+            Console.WriteLine("\t-username <user>\t\t- the username of the account to login to for restricted content.");
+            Console.WriteLine("\t-password <pass>\t\t- the password of the account to login to for restricted content.");
+            Console.WriteLine("\t-remember-password\t\t- if set, remember the password for subsequent logins of this user.");
             Console.WriteLine();
-            Console.WriteLine( "\t-dir <installdir>\t\t- the directory in which to place downloaded files." );
-            Console.WriteLine( "\t-filelist <file.txt>\t- a list of files to download (from the manifest). Prefix file path with 'regex:' if you want to match with regex." );
-            Console.WriteLine( "\t-validate\t\t\t\t- Include checksum verification of files already downloaded" );
+            Console.WriteLine("\t-dir <installdir>\t\t- the directory in which to place downloaded files.");
+            Console.WriteLine("\t-filelist <file.txt>\t\t- a list of files to download (from the manifest). Prefix file path with 'regex:' if you want to match with regex.");
+            Console.WriteLine("\t-validate\t\t\t- Include checksum verification of files already downloaded");
             Console.WriteLine();
-            Console.WriteLine( "\t-manifest-only\t\t\t- downloads a human readable manifest for any depots that would be downloaded." );
-            Console.WriteLine( "\t-cellid <#>\t\t\t\t- the overridden CellID of the content server to download from." );
-            Console.WriteLine( "\t-max-servers <#>\t\t- maximum number of content servers to use. (default: 20)." );
-            Console.WriteLine( "\t-max-downloads <#>\t\t- maximum number of chunks to download concurrently. (default: 8)." );
-            Console.WriteLine( "\t-loginid <#>\t\t- a unique 32-bit integer Steam LogonID in decimal, required if running multiple instances of DepotDownloader concurrently." );
+            Console.WriteLine("\t-manifest-only\t\t\t- downloads a human readable manifest for any depots that would be downloaded.");
+            Console.WriteLine("\t-cellid <#>\t\t\t- the overridden CellID of the content server to download from.");
+            Console.WriteLine("\t-max-servers <#>\t\t- maximum number of content servers to use. (default: 20).");
+            Console.WriteLine("\t-max-downloads <#>\t\t- maximum number of chunks to download concurrently. (default: 8).");
+            Console.WriteLine("\t-loginid <#>\t\t\t- a unique 32-bit integer Steam LogonID in decimal, required if running multiple instances of DepotDownloader concurrently.");
         }
     }
 }

@@ -1,7 +1,8 @@
 {
-  "profiles": {
-    "DepotDownloader": {
-      "commandName": "Project"
+    "profiles": {
+        "DepotDownloader": {
+            "commandName": "Project",
+            "commandLineArgs": "-app 620980 -depot 620981 -depotkey 9ed35e10891998ba515f2e19a33976b3ca2d39e22bdb82245eaf046a37d48804+1"
+        }
     }
-  }
 }
